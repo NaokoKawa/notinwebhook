@@ -1,23 +1,33 @@
-import json
-import webapp2
 
-class EchoHandler(webapp2.RequestHandler):
-    VERIFICATION_TOKEN = 'YOUR_VERIFICATION_TOKEN'
+import os
+from notion.client import NotionClient
+from flask import Flask
+from flask import request
 
-    def post(self):
-        body = json.loads(self.request.body)
-        if body['token'] != self.VERIFICATION_TOKEN:
-            self.response.headers['Content-Type'] = 'text/plain'
-            self.status = 403
-            self.response.write('403 Forbidden')
-            return
-        if body['type'] == 'url_verification':
-            self.verify_url(body)
 
-    def verify_url(self, params):
-        self.response.headers['Content-Type'] = 'text/plain'
-        self.response.write(params['challenge'])
+app = Flask(__name__)
 
-app = webapp2.WSGIApplication([
-    ('/echo-bot-hook', EchoHandler)
-], debug=True)
+
+def createNotionTask(token, collectionURL, content):
+    # notion
+    client = NotionClient(token)
+    cv = client.get_collection_view(collectionURL)
+    row = cv.collection.add_row()
+    row.title = content
+    row.categories = "d8b32dac-7d11-4879-813f-5acdb040fd33"
+
+
+@app.route('/create_todo', methods=['GET'])
+def create_todo():
+
+    todo = request.args.get('todo')
+    token_v2 = os.environ.get("TOKEN")
+    url = os.environ.get("URL")
+    createNotionTask(token_v2, url, todo)
+    return f'added {todo} to Notion'
+
+
+if __name__ == '__main__':
+    app.debug = True
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
