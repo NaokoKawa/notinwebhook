@@ -7,7 +7,8 @@ import urllib.request
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-def handle_slack_event(slack_event: dict, context) -> str:
+@app.route('/create_todo', methods=['GET'])
+def create_todo(slack_event: dict, context) -> str:
 
     # 受け取ったイベント情報をCloud Watchログに出力
     logging.info(json.dumps(slack_event))
