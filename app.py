@@ -1,33 +1,60 @@
-
+import json
+import logging
+import urllib.request
 import os
-from notion.client import NotionClient
-from flask import Flask
-from flask import request
 
+print('Loading function... ')
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
-app = Flask(__name__)
+def handler(event, context):
+    #getenv
+    OAUTH_TOKEN = os.environ['OAUTH_TOKEN']
+    BOT_TOKEN = os.environ['BOT_TOKEN']
+    HOOK_KEYWORD = os.environ['HOOK_KEYWORD']
+    REPLY_WORD = os.environ['REPLY_WORD']
+    BOT_NAME = os.environ['BOT_NAME']
 
+    #受信したjsonをLogsに出力
+    logging.info(json.dumps(event))
 
-def createNotionTask(token, collectionURL, content):
-    # notion
-    client = NotionClient(token)
-    cv = client.get_collection_view(collectionURL)
-    row = cv.collection.add_row()
-    row.title = content
-    row.categories = "d8b32dac-7d11-4879-813f-5acdb040fd33"
+    print (type(event))
+    # json処理
+    if 'body' in event:
+        body = json.loads(event.get('body'))
+    elif 'token' in event:
+        body = event
+    else:
+        logger.error('unexpected event format')
+        return {'statusCode': 500, 'body': 'error:unexpected event format'}
 
-
-@app.route('/create_todo', methods=['GET'])
-def create_todo():
-
-    todo = request.args.get('todo')
-    token_v2 = os.environ.get("TOKEN")
-    url = os.environ.get("URL")
-    createNotionTask(token_v2, url, todo)
-    return f'added {todo} to Notion'
-
-
-if __name__ == '__main__':
-    app.debug = True
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    #url_verificationイベントに返す
+    if 'challenge' in body:
+        challenge = body.get('challenge')
+        logging.info('return challenge key %s:', challenge)
+        return {
+            'isBase64Encoded': 'true',
+            'statusCode': 200,
+            'headers': {},
+            'body': challenge
+        }
+    #SlackMessageに特定のキーワードが入っていたときの処理（poopに反応して処理します）
+    if body.get('event').get('text') == HOOK_KEYWORD:
+        logger.info('hit!: %s', HOOK_KEYWORD)
+        url = 'https://slack.com/api/chat.postMessage'
+        headers = {
+            'Content-Type': 'application/json; charset=UTF-8',
+            'Authorization': 'Bearer {0}'.format(BOT_TOKEN)
+        }
+        data = {
+            'token': OAUTH_TOKEN,
+            'channel': body.get('event').get('channel'),
+            'text': REPLY_WORD,
+            'username': BOT_NAME
+        }
+        # POST処理　
+        req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), method='POST', headers=headers)
+        res = urllib.request.urlopen(req)
+        logger.info('post result: %s', res.msg)
+        return {'statusCode': 200, 'body': 'ok'}
+    return {'statusCode': 200, 'body': 'quit'}
