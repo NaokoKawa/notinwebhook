@@ -1,33 +1,32 @@
-
+import flask
+from flask import request, Response
 import os
-from notion.client import NotionClient
-from flask import Flask
-from flask import request
+import json
+
+app = flask.Flask(__name__)
 
 
-app = Flask(__name__)
+@app.route('/', methods=["POST"])
+def index():
+    data = request.data.decode('utf-8')
+    data = json.loads(data)
+    # for challenge of slack api
+    if 'challenge' in data:
+        token = str(data['challenge'])
+        return Response(token, mimetype='text/plane')
+    # for events which you added
+    if 'event' in data:
+        print("get event")
+        event = data['event']
+        if 'user' in event:
+            print("user = ", event["user"])
+        if "text" in event:
+            print("text = ", event["text"])
+    return Response("nothing", mimetype='text/plane')
 
 
-def createNotionTask(token, collectionURL, content):
-    # notion
-    client = NotionClient(token)
-    cv = client.get_collection_view(collectionURL)
-    row = cv.collection.add_row()
-    row.title = content
-    row.categories = "d8b32dac-7d11-4879-813f-5acdb040fd33"
-
-
-@app.route('/create_todo', methods=['GET'])
-def create_todo():
-
-    todo = request.args.get('todo')
-    token_v2 = os.environ.get("TOKEN")
-    url = os.environ.get("URL")
-    createNotionTask(token_v2, url, todo)
-    return f'added {todo} to Notion'
+port = os.getenv('VCAP_APP_PORT', '8000')
 
 
 if __name__ == '__main__':
-    app.debug = True
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=int(port), debug=True)
