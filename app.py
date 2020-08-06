@@ -1,18 +1,9 @@
-import os
-import json
-import logging
-import urllib.request
+from flask import abort, Flask, jsonify, request
+from slackeventsapi import SlackEventAdapter
 
-# ログ設定
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+app = Flask(__name__)
 
-@app.route('/create_todo', methods=['GET'])
-def create_todo(slack_event: dict, context) -> str:
-
-    # 受け取ったイベント情報をCloud Watchログに出力
-    logging.info(json.dumps(slack_event))
-
-    # Event APIの認証
-    if "challenge" in slack_event:
-        return slack_event.get("challenge")
+slack_events_adapter = SlackEventAdapter("SIGINING_SECRET", "/slack/events", app)
+@slack_events_adapter.on("message")
+def hookSlackEvents(event_data):
+    app.logger.debug(event_data)
